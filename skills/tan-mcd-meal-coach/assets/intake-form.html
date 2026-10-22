@@ -1,0 +1,338 @@
+<div id="meal-intake-form">
+  <style>
+    #meal-intake-form {
+      color: var(--foreground);
+      max-width: 760px;
+    }
+
+    #meal-intake-form .mif-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    #meal-intake-form .mif-header h2 {
+      margin: 0;
+    }
+
+    #meal-intake-form .mif-header p {
+      margin: 4px 0 0;
+      color: var(--muted-foreground);
+    }
+
+    #meal-intake-form .mif-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    #meal-intake-form .mif-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    #meal-intake-form .mif-field-full {
+      grid-column: 1 / -1;
+    }
+
+    #meal-intake-form .mif-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    #meal-intake-form .mif-actions #mif-status {
+      flex: 1 1 180px;
+      color: var(--muted-foreground);
+    }
+
+    #meal-intake-form [hidden] {
+      display: none !important;
+    }
+
+    @media (max-width: 560px) {
+      #meal-intake-form .mif-header {
+        display: block;
+      }
+
+      #meal-intake-form .mif-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #meal-intake-form .mif-field-full {
+        grid-column: auto;
+      }
+    }
+  </style>
+
+  <div class="card">
+    <div class="mif-header">
+      <div>
+        <h2>今天怎么吃</h2>
+        <p>填一次，直接发送安排请求。</p>
+      </div>
+      <span class="viz-badge">谭成义体系</span>
+    </div>
+
+    <form id="mif-form" novalidate>
+      <div class="mif-grid">
+        <label class="mif-field">
+          <span class="form-label">体重（kg）</span>
+          <input
+            id="mif-weight"
+            class="form-control"
+            name="weight"
+            type="number"
+            min="30"
+            max="250"
+            step="0.1"
+            inputmode="decimal"
+            placeholder="请输入体重"
+            required
+          />
+        </label>
+
+        <label class="mif-field">
+          <span class="form-label">性别</span>
+          <select id="mif-gender" class="form-select" name="gender" required>
+            <option value="">请选择</option>
+            <option value="男">男</option>
+            <option value="女">女</option>
+          </select>
+        </label>
+
+        <label class="mif-field">
+          <span class="form-label">每周运动时长</span>
+          <select id="mif-exercise" class="form-select" name="exercise" required>
+            <option value="">请选择</option>
+            <option value="2–3 小时/周">2–3 小时/周</option>
+            <option value="4–5 小时/周">4–5 小时/周</option>
+            <option value="6–7 小时/周">6–7 小时/周</option>
+            <option value="8–9 小时/周">8–9 小时/周</option>
+          </select>
+        </label>
+
+        <label class="mif-field">
+          <span class="form-label">安排哪一餐</span>
+          <select id="mif-meal" class="form-select" name="meal" required>
+            <option value="全天三餐">全天三餐</option>
+            <option value="早餐">早餐</option>
+            <option value="午餐">午餐</option>
+            <option value="晚餐">晚餐</option>
+          </select>
+        </label>
+
+        <label class="mif-field">
+          <span class="form-label">城市</span>
+          <input
+            id="mif-city"
+            class="form-control"
+            name="city"
+            type="text"
+            placeholder="请输入城市"
+            autocomplete="off"
+            required
+          />
+        </label>
+
+        <label class="mif-field">
+          <span class="form-label">商圈 / 地标</span>
+          <input
+            id="mif-landmark"
+            class="form-control"
+            name="landmark"
+            type="text"
+            placeholder="请输入商圈或地标"
+            autocomplete="off"
+            required
+          />
+        </label>
+
+        <label class="mif-field">
+          <span class="form-label">取餐方式</span>
+          <select id="mif-pickup" class="form-select" name="pickup">
+            <option value="到店自取·外带">到店自取·外带</option>
+            <option value="到店自取·堂食">到店自取·堂食</option>
+          </select>
+        </label>
+
+        <label class="mif-field mif-field-full">
+          <span class="form-label">今天已经吃过（可选）</span>
+          <textarea
+            id="mif-eaten"
+            class="form-control"
+            name="eaten"
+            rows="3"
+            placeholder="例如：早餐 2 个鸡蛋 + 一杯拿铁；没有可不填"
+          ></textarea>
+        </label>
+      </div>
+
+      <div class="mif-actions">
+        <button class="btn btn-primary" type="submit">开始安排</button>
+        <span id="mif-status" role="status" aria-live="polite"></span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(() => {
+  const root = document.getElementById("meal-intake-form");
+  if (!root) return;
+
+  const form = root.querySelector("#mif-form");
+  const status = root.querySelector("#mif-status");
+  const submitButton = root.querySelector('button[type="submit"]');
+  const cooldownSeconds = 30;
+  const fields = {
+    weight: root.querySelector("#mif-weight"),
+    gender: root.querySelector("#mif-gender"),
+    exercise: root.querySelector("#mif-exercise"),
+    meal: root.querySelector("#mif-meal"),
+    city: root.querySelector("#mif-city"),
+    landmark: root.querySelector("#mif-landmark"),
+    pickup: root.querySelector("#mif-pickup"),
+    eaten: root.querySelector("#mif-eaten")
+  };
+
+  const saved = window.openai?.widgetState?.mealIntake;
+  let cooldownUntil = Number(window.openai?.widgetState?.mealIntakeCooldown || 0);
+  let cooldownTimer = null;
+  let sending = false;
+
+  if (saved) {
+    Object.entries(fields).forEach(([key, element]) => {
+      if (saved[key] !== undefined) element.value = saved[key];
+    });
+  }
+
+  function buildPrompt() {
+    const weight = fields.weight.value.trim();
+    const meal = fields.meal.value;
+    const eaten = fields.eaten.value.trim();
+    const mealInstruction = meal === "全天三餐"
+      ? "请安排今天全天三餐。"
+      : `请只安排今天${meal}。`;
+    const eatenInstruction = eaten
+      ? `今天已经吃过：${eaten}。请先扣除已吃，再安排剩余餐次。`
+      : "";
+
+    return [
+      mealInstruction,
+      `体重 ${weight}kg；性别 ${fields.gender.value}；每周运动 ${fields.exercise.value}；城市 ${fields.city.value.trim()}；商圈/地标 ${fields.landmark.value.trim()}；${fields.pickup.value}。`,
+      eatenInstruction,
+      "请按谭成义框架先给菜单和营养成分表，不要直接下单。"
+    ].filter(Boolean).join("\n");
+  }
+
+  function remember() {
+    const mealIntake = Object.fromEntries(
+      Object.entries(fields).map(([key, element]) => [key, element.value])
+    );
+    window.openai?.setWidgetState?.({
+      modelContent: { mealIntake },
+      privateContent: { mealIntake, mealIntakeCooldown: cooldownUntil }
+    })?.catch?.(() => {});
+  }
+
+  function startCooldown(seconds, message) {
+    clearInterval(cooldownTimer);
+    cooldownUntil = Date.now() + seconds * 1000;
+    submitButton.disabled = true;
+    remember();
+
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+      if (remaining === 0) {
+        clearInterval(cooldownTimer);
+        cooldownTimer = null;
+        submitButton.disabled = false;
+        status.textContent = "";
+        return;
+      }
+      status.textContent = `${message}（${remaining} 秒后可重试）`;
+    };
+
+    update();
+    cooldownTimer = setInterval(update, 1000);
+  }
+
+  if (cooldownUntil > Date.now()) {
+    startCooldown(
+      Math.ceil((cooldownUntil - Date.now()) / 1000),
+      "请求过于频繁，已暂停发送"
+    );
+  }
+
+  function isRateLimitError(error) {
+    return /429|too many requests|rate limit|retry limit/i.test(
+      String(error?.message || error || "")
+    );
+  }
+
+  async function submitIntake() {
+    const missing = [
+      [fields.weight, "体重"],
+      [fields.gender, "性别"],
+      [fields.exercise, "每周运动时长"],
+      [fields.city, "城市"],
+      [fields.landmark, "商圈 / 地标"]
+    ].find(([element]) => !element.value.trim());
+
+    if (missing) {
+      status.textContent = `请填写${missing[1]}。`;
+      missing[0].focus();
+      return;
+    }
+
+    if (sending || Date.now() < cooldownUntil) {
+      const remaining = Math.max(1, Math.ceil((cooldownUntil - Date.now()) / 1000));
+      status.textContent = `请求已发送或请求过多，请 ${remaining} 秒后再试。`;
+      return;
+    }
+
+    const value = buildPrompt();
+    remember();
+
+    if (typeof window.openai?.sendFollowUpMessage !== "function") {
+      status.textContent = "当前预览环境不支持自动发送，请在 Codex 中打开表单。";
+      return;
+    }
+
+    sending = true;
+    submitButton.disabled = true;
+    status.textContent = "正在发送安排请求…";
+    try {
+      await window.openai.sendFollowUpMessage({
+        title: "开始安排",
+        prompt: value
+      });
+      startCooldown(cooldownSeconds, "请求已发送");
+    } catch (error) {
+      if (isRateLimitError(error)) {
+        startCooldown(cooldownSeconds, "请求过多，已停止重试");
+      } else {
+        startCooldown(10, "发送失败，请稍后重试");
+      }
+    } finally {
+      sending = false;
+    }
+  }
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitIntake();
+  });
+
+  submitButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    submitIntake();
+  });
+})();
+</script>
